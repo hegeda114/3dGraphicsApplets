@@ -1,8 +1,9 @@
-import * as THREE from "three";
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import {DragControls} from 'three/addons/controls/DragControls';
-import {TransformControls} from 'three/addons/controls/TransformControls';
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {DragControls} from 'three/addons/controls/DragControls.js';
+import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {GUI} from 'three/addons/libs/lil-gui.module.min.js';
+import {BufferGeometry, MeshBasicMaterial} from "three";
 
 
 export class Scene {
@@ -24,7 +25,13 @@ export class Scene {
         this.threeRenderer.shadowMap.enabled = true;
         container.appendChild(this.threeRenderer.domElement);
 
-        this.animatedObjects = []
+        this.animatedObjects = [];
+        this.dragControlObjects = [];
+
+        // Existence flags
+        this.hasMainCamera = false;
+        this.hasDragControl = false;
+        this.hasTransformControl = false;
     }
 
     /**
@@ -34,7 +41,7 @@ export class Scene {
      * @param yPos - the y position of the grid helper
      * @param opacity - the opacity of the grid helper
      */
-    addHelperGrid(size = 2000, division = 2000, yPos = -0.1, opacity = 0.25) {
+    addGridHelper(size = 2000, division = 2000, yPos = 0, opacity = 0.25) {
         const helper = new THREE.GridHelper(size, division);
         helper.position.y = yPos;
         helper.material.opacity = opacity;
@@ -42,55 +49,113 @@ export class Scene {
         this.threeScene.add(helper);
     }
 
-    addOrthographicMainCamera(position = new THREE.Vector3(0, 1, 0)) {
-        // TODO use the container instead of the window!
-        const width = this.containerWidth;
-        const height = this.containerHeight;
+    addAxesHelper(size = 5) {
+        const axesHelper = new THREE.AxesHelper(size);
+        this.threeScene.add(axesHelper);
+    }
 
-        // Create and add camera
-        this.mainCamera = new THREE.OrthographicCamera(width / -2, width / 2, height / 2, height / -2, 0.001, 10);
+    addDragControls() {
+        if (!this.hasMainCamera) {
+            let error_text = 'You have to create a camera before call this function.';
+            error_text += 'Use the "addPerspectiveMainCamera" or "addOrthographicMainCamera" functions!';
+            throw Error(error_text);
+        }
+
+        this.hasDragControl = true;
+        this.dragControl = new DragControls(this.dragControlObjects, this.mainCamera, this.threeRenderer.domElement);
+        this.dragControl.addEventListener('dragstart', (event) => {
+            event.object.enableHighlight();
+            this.cameraOrbitControl.enabled = false;
+        });
+
+        this.dragControl.addEventListener('dragend', (event) => {
+            event.object.disableHighlight();
+            this.cameraOrbitControl.enabled = true;
+        });
+
+        this.dragControl.addEventListener('drag', (event) => {
+            if (event.object.is2DObject) {
+                event.object.position.y = 0;
+            }
+        })
+    }
+
+    // TODO implement!
+    addTransformControls() {
+        if (!this.hasMainCamera) {
+            let error_text = 'You have to create a camera before call this function.';
+            error_text += 'Use the "addPerspectiveMainCamera" or "addOrthographicMainCamera" functions!';
+            throw Error(error_text);
+        }
+
+        this.hasTransformControl = true;
+        this.transformControl = new TransformControls(this.mainCamera, this.threeRenderer.domElement);
+        this.transformControl.addEventListener('dragging-changed', (event) => {
+            // Block cameraOrbitControl while dragging an object
+            this.cameraOrbitControl.enabled = !this.cameraOrbitControl.value;
+        });
+        this.threeScene.add(this.transformControl);
+
+        // TODO implement this, to update anything while dragging
+        // transformControl.addEventListener( 'objectChange', function () {
+        //     updateSplineOutline();
+        // } );
+    }
+
+    addOrthographicMainCamera(position = new THREE.Vector3(0, 1, 0)) {
+        this.hasMainCamera = true;
+
+        // Create and add camera to the scene
+        this.mainCamera = new THREE.OrthographicCamera(
+            this.containerWidth / -2, this.containerWidth / 2,
+            this.containerHeight / 2, this.containerHeight / -2, 0.001, 10
+        );
         this.mainCamera.position.set(position.x, position.y, position.z);
         this.mainCamera.zoom = 40;
         this.mainCamera.updateMatrixWorld(1);
         this.threeScene.add(this.mainCamera);
 
-        // Create and add orbit control
+        // Create orbit control
         this.cameraOrbitControl = new OrbitControls(this.mainCamera, this.threeRenderer.domElement);
         this.cameraOrbitControl.damping = 0.2;
         this.cameraOrbitControl.enableRotate = false;
     }
 
-    addPerspectiveMainCamera(position = new THREE.Vector3(0, 0, 3)) {
-        // TODO use the container instead of the window!
-        const width = this.containerWidth;
-        const height = this.containerHeight;
+    addPerspectiveMainCamera(position = new THREE.Vector3(0, 5, 10)) {
+        this.hasMainCamera = true;
 
-        // Create and add camera
-        this.mainCamera = new THREE.PerspectiveCamera( 70, width / height, 1, 1000);
+        // Create and add camera to the scene
+        this.mainCamera = new THREE.PerspectiveCamera(70, this.containerWidth / this.containerHeight, 1, 1000);
         this.mainCamera.position.set(position.x, position.y, position.z);
         this.mainCamera.updateMatrixWorld(1);
         this.threeScene.add(this.mainCamera);
 
-        // Create and add orbit control
+        // Create orbit control
         this.cameraOrbitControl = new OrbitControls(this.mainCamera, this.threeRenderer.domElement);
         this.cameraOrbitControl.damping = 0.2;
     }
 
     addTestCube(position = new THREE.Vector3(0, 0, 0)) {
         const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-        const cube = new THREE.Mesh(geometry, material);
-        this.threeScene.add(cube)
+        const material = new THREE.MeshStandardMaterial({color: new THREE.Color(0x00ff00)});
+        const cube = new ExtendedMesh(geometry, material);
+        cube.position.set(position.x, position.y, position.z)
+        this.threeScene.add(cube);
+        this.dragControlObjects.push(cube);
+    }
+
+    addPointLight() {
+        const light = new THREE.PointLight(0xffffff, 1000)
+        light.position.set(10, 10, 10)
+        this.threeScene.add(light)
     }
 
     addTestAnimatedCube(position = new THREE.Vector3(0, 0, 0)) {
         const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshBasicMaterial({color: 0xff0000});
-        const cube = new THREE.Mesh(geometry, material);
+        const material = new THREE.MeshStandardMaterial({color: 0xff0000});
+        const cube = new ExtendedMesh(geometry, material);
         this.threeScene.add(cube)
-
-        const animatedCube = new AnimatedObject(cube);
-        this.animatedObjects.push(animatedCube)
+        this.animatedObjects.add(cube)
     }
 
     animate() {
@@ -113,5 +178,58 @@ class AnimatedObject {
     animate() {
         this.mesh.rotation.x += 0.01;
         this.mesh.rotation.y += 0.01;
+    }
+}
+
+class ExtendedMesh extends THREE.Mesh {
+    constructor(geometry = new THREE.BufferGeometry(), material = new THREE.MeshStandardMaterial()) {
+        super(geometry, material);
+    }
+
+    enableHighlight() {
+        this.material.needsUpdate = true
+        this.material.transparent = true;
+        this.material.opacity = 0.5;
+    }
+
+    disableHighlight() {
+        this.material.opacity = 1;
+        this.material.transparent = false;
+        this.material.needsUpdate = false;
+    }
+
+    animate() {
+        this.rotation.x += 0.01;
+        this.rotation.y += 0.01;
+    }
+}
+
+class ControlPoint extends THREE.Mesh {
+    constructor(radius, is2DObject = false) {
+        const geometry = new THREE.CircleGeometry(radius, 16);
+        const material = new THREE.MeshStandardMaterial(
+            {color: new THREE.Color(0xff0000)}
+        )
+        super(geometry, material);
+        this.rotateX(-Math.PI / 2);
+        this.is2DObject = is2DObject;
+    }
+
+    enableHighlight() {
+        this.material.needsUpdate = true
+        this.material.transparent = true;
+        this.material.opacity = 0.5;
+    }
+
+    disableHighlight() {
+        this.material.opacity = 1;
+        this.material.transparent = false;
+        this.material.needsUpdate = false;
+    }
+}
+
+export class ControlPoint2d extends ControlPoint {
+    constructor(radius = 0.2) {
+        super(radius, true);
     }
 }
