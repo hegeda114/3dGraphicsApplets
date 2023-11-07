@@ -158,6 +158,18 @@ export class Scene {
         this.animatedObjects.add(cube)
     }
 
+    addTestQuadraticBezier() {
+        const quadraticBezier = new EditableQuadraticBezierCurve();
+        this.threeScene.add(quadraticBezier.curveObject);
+        quadraticBezier.controlPoints.forEach((controlPoint) => {
+            this.threeScene.add(controlPoint);
+            this.dragControlObjects.push(controlPoint);
+        })
+        this.dragControl.addEventListener('drag', (event) => {
+            quadraticBezier.updateCurveObject();
+        })
+    }
+
     animate() {
         this.animatedObjects.forEach((element) => element.animate());
     }
@@ -231,5 +243,44 @@ class ControlPoint extends THREE.Mesh {
 export class ControlPoint2d extends ControlPoint {
     constructor(radius = 0.2) {
         super(radius, true);
+    }
+
+    get2dPosition() {
+        return new THREE.Vector2(this.position.x, this.position.z)
+    }
+}
+
+export class EditableQuadraticBezierCurve {
+    constructor() {
+        this.controlPoints = [
+            new ControlPoint2d(),
+            new ControlPoint2d(),
+            new ControlPoint2d(),
+            new ControlPoint2d(),
+        ];
+
+        this.controlPoints[0].position.set(-3, 0, 0);
+        this.controlPoints[1].position.set(0, 0, 2);
+        this.controlPoints[2].position.set(3, 0, 3);
+        this.controlPoints[3].position.set(5, 0, -3);
+
+        this.geometry = new THREE.BufferGeometry()
+        this.material = new THREE.LineBasicMaterial({color: 0xff0000});
+        this.curveObject = new THREE.Line(this.geometry, this.material);
+        this.curveObject.rotateX(Math.PI / 2);
+
+        this.updateCurveObject();
+    }
+
+    updateCurveObject() {
+        const curve = new THREE.CubicBezierCurve(
+            this.controlPoints[0].get2dPosition(),
+            this.controlPoints[1].get2dPosition(),
+            this.controlPoints[2].get2dPosition(),
+            this.controlPoints[3].get2dPosition(),
+        );
+
+        const points = curve.getPoints(50);
+        this.geometry.setFromPoints(points);
     }
 }
