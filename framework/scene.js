@@ -3,7 +3,8 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {DragControls} from 'three/addons/controls/DragControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {GUI} from 'three/addons/libs/lil-gui.module.min.js';
-import {BufferGeometry, MeshBasicMaterial} from "three";
+import {BezierCurve} from "./curves/bezier.js";
+import {ControlPoint2d} from "./control_point.js";
 
 
 export class Scene {
@@ -164,10 +165,37 @@ export class Scene {
         quadraticBezier.controlPoints.forEach((controlPoint) => {
             this.threeScene.add(controlPoint);
             this.dragControlObjects.push(controlPoint);
-        })
+        });
         this.dragControl.addEventListener('drag', (event) => {
             quadraticBezier.updateCurveObject();
-        })
+        });
+    }
+
+    addTestBezierCurve() {
+        const bezier = new BezierCurve(16);
+        this.threeScene.add(bezier.curveObject);
+        bezier.controlPoints.forEach((controlPoint) => {
+            this.threeScene.add(controlPoint);
+            this.dragControlObjects.push(controlPoint);
+        });
+        this.dragControl.addEventListener('drag', (event) => {
+            bezier.updateCurveObject();
+        });
+    }
+
+    /**
+     * Adds the given object to the scene and returns the success.
+     */
+    addObject(object) {
+        if (typeof object.getMesh !== 'function') {
+            return false;
+        }
+        this.threeScene.add()
+        return true;
+    }
+
+    addMesh() {
+
     }
 
     animate() {
@@ -213,40 +241,6 @@ class ExtendedMesh extends THREE.Mesh {
     animate() {
         this.rotation.x += 0.01;
         this.rotation.y += 0.01;
-    }
-}
-
-class ControlPoint extends THREE.Mesh {
-    constructor(radius, is2DObject = false) {
-        const geometry = new THREE.CircleGeometry(radius, 16);
-        const material = new THREE.MeshStandardMaterial(
-            {color: new THREE.Color(0xff0000)}
-        )
-        super(geometry, material);
-        this.rotateX(-Math.PI / 2);
-        this.is2DObject = is2DObject;
-    }
-
-    enableHighlight() {
-        this.material.needsUpdate = true
-        this.material.transparent = true;
-        this.material.opacity = 0.5;
-    }
-
-    disableHighlight() {
-        this.material.opacity = 1;
-        this.material.transparent = false;
-        this.material.needsUpdate = false;
-    }
-}
-
-export class ControlPoint2d extends ControlPoint {
-    constructor(radius = 0.2) {
-        super(radius, true);
-    }
-
-    get2dPosition() {
-        return new THREE.Vector2(this.position.x, this.position.z)
     }
 }
 
