@@ -35,6 +35,7 @@ myScene.addPointLight();
 myScene.addDragControls();
 // myScene.addTestQuadraticBezier();
 myScene.addTestBezierCurve();
+myScene.addDebugGui();
 
 // Update
 function update() {

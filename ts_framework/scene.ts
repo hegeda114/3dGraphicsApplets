@@ -1,13 +1,32 @@
-import * as THREE from 'three';
-import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {DragControls} from 'three/addons/controls/DragControls.js';
-import {TransformControls} from 'three/addons/controls/TransformControls.js';
-import {GUI} from 'three/addons/libs/lil-gui.module.min.js';
-import {BezierCurve} from "./curves/bezier.js";
-import {ControlPoint2d} from "./control_point.js";
+import * as THREE from 'three'
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+import {DragControls} from 'three/examples/jsm/controls/DragControls';
+import {TransformControls} from 'three/examples/jsm/controls/TransformControls';
+import {GUI} from 'three/examples/jsm/libs/lil-gui.module.min.js';
+import {ControlPoint, ControlPoint3d} from './control_point';
+import {Animatable, ComplexObject} from "./object";
+import {OrthographicCamera} from "three";
 
 
 export class Scene {
+    threeScene: THREE.Scene;
+    containerWidth: number;
+    containerHeight: number;
+    threeRenderer: THREE.WebGLRenderer;
+    animatedObjects: Animatable[];
+    mainCamera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
+
+    // Controls
+    dragControl: DragControls
+    dragControlObjects: THREE.Mesh[];
+    cameraOrbitControl: OrbitControls;
+    transformControl: TransformControls;
+
+    // Existence flags
+    hasMainCamera: boolean = false;
+    hasDragControl: boolean = false;
+    hasTransformControl: boolean = false;
+
     /**
      * Creates a Scene instance
      * @param container - HTML Dom element to where the WebGL will be rendering
@@ -25,24 +44,6 @@ export class Scene {
         this.threeRenderer.setSize(this.containerWidth, this.containerHeight);
         this.threeRenderer.shadowMap.enabled = true;
         container.appendChild(this.threeRenderer.domElement);
-
-        this.animatedObjects = [];
-        this.dragControlObjects = [];
-
-        // Existence flags
-        this.hasMainCamera = false;
-        this.hasDragControl = false;
-        this.hasTransformControl = false;
-
-        // Test
-        const geometry = new THREE.BoxGeometry()
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
-        })
-
-        this.cube = new THREE.Mesh(geometry, material)
-        this.cube.position.set(10, 0, 0)
-        this.threeScene.add(this.cube)
     }
 
     /**
@@ -75,6 +76,7 @@ export class Scene {
         this.hasDragControl = true;
         this.dragControl = new DragControls(this.dragControlObjects, this.mainCamera, this.threeRenderer.domElement);
         this.dragControl.addEventListener('dragstart', (event) => {
+            const obj: Animatable = event.object as Animatable;
             event.object.enableHighlight();
             this.cameraOrbitControl.enabled = false;
         });
@@ -103,7 +105,7 @@ export class Scene {
         this.transformControl = new TransformControls(this.mainCamera, this.threeRenderer.domElement);
         this.transformControl.addEventListener('dragging-changed', (event) => {
             // Block cameraOrbitControl while dragging an object
-            this.cameraOrbitControl.enabled = !this.cameraOrbitControl.value;
+            this.cameraOrbitControl.enabled = !this.cameraOrbitControl.enabled;  // TODO not tested!
         });
         this.threeScene.add(this.transformControl);
 
@@ -123,12 +125,12 @@ export class Scene {
         );
         this.mainCamera.position.set(position.x, position.y, position.z);
         this.mainCamera.zoom = 40;
-        this.mainCamera.updateMatrixWorld(1);
+        this.mainCamera.updateMatrixWorld(true);
         this.threeScene.add(this.mainCamera);
 
         // Create orbit control
         this.cameraOrbitControl = new OrbitControls(this.mainCamera, this.threeRenderer.domElement);
-        this.cameraOrbitControl.damping = 0.2;
+        this.cameraOrbitControl.dampingFactor = 0.2;
         this.cameraOrbitControl.enableRotate = false;
     }
 
@@ -143,42 +145,13 @@ export class Scene {
 
         // Create orbit control
         this.cameraOrbitControl = new OrbitControls(this.mainCamera, this.threeRenderer.domElement);
-        this.cameraOrbitControl.damping = 0.2;
-    }
-
-    addTestCube(position = new THREE.Vector3(0, 0, 0)) {
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshStandardMaterial({color: new THREE.Color(0x00ff00)});
-        const cube = new ExtendedMesh(geometry, material);
-        cube.position.set(position.x, position.y, position.z)
-        this.threeScene.add(cube);
-        this.dragControlObjects.push(cube);
+        this.cameraOrbitControl.dampingFactor = 0.2;
     }
 
     addPointLight() {
         const light = new THREE.PointLight(0xffffff, 1000)
         light.position.set(10, 10, 10)
         this.threeScene.add(light)
-    }
-
-    addTestAnimatedCube(position = new THREE.Vector3(0, 0, 0)) {
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshStandardMaterial({color: 0xff0000});
-        const cube = new ExtendedMesh(geometry, material);
-        this.threeScene.add(cube)
-        this.animatedObjects.add(cube)
-    }
-
-    addTestQuadraticBezier() {
-        const quadraticBezier = new EditableQuadraticBezierCurve();
-        this.threeScene.add(quadraticBezier.curveObject);
-        quadraticBezier.controlPoints.forEach((controlPoint) => {
-            this.threeScene.add(controlPoint);
-            this.dragControlObjects.push(controlPoint);
-        });
-        this.dragControl.addEventListener('drag', (event) => {
-            quadraticBezier.updateCurveObject();
-        });
     }
 
     addTestBezierCurve() {
@@ -193,31 +166,24 @@ export class Scene {
         });
     }
 
-    addDebugGui() {
-        const gui = new GUI()
-        const cubeFolder = gui.addFolder('Cube')
-        cubeFolder.add(this.cube.rotation, 'x', 0, Math.PI * 2)
-        cubeFolder.add(this.cube.rotation, 'y', 0, Math.PI * 2)
-        cubeFolder.add(this.cube.rotation, 'z', 0, Math.PI * 2)
-        // cubeFolder.open()
-        // const cameraFolder = gui.addFolder('Camera')
-        // cameraFolder.add(camera.position, 'z', 0, 10)
-        // cameraFolder.open()
+    addMesh(mesh: THREE.Mesh) {
+        this.threeScene.add(mesh);
     }
 
     /**
      * Adds the given object to the scene and returns the success.
      */
-    addObject(object) {
-        if (typeof object.getMesh !== 'function') {
-            return false;
-        }
-        this.threeScene.add()
-        return true;
-    }
+    addComplexObject(object: ComplexObject) {
+        this.threeScene.add(object.getRenderObject())
+        const controlPoints = object.getControlPoints()
+        controlPoints.forEach((controlPoint: ControlPoint) => {
+            this.threeScene.add(controlPoint);
+            this.dragControlObjects.push(controlPoint)
+        })
 
-    addMesh() {
-
+        this.dragControl.addEventListener('drag', (event) => {
+            object.updateCurveObject();
+        });
     }
 
     animate() {
@@ -229,74 +195,5 @@ export class Scene {
 
         this.cameraOrbitControl.update();
         this.threeRenderer.render(this.threeScene, this.mainCamera);
-    }
-}
-
-class AnimatedObject {
-    constructor(mesh) {
-        this.mesh = mesh
-    }
-
-    animate() {
-        this.mesh.rotation.x += 0.01;
-        this.mesh.rotation.y += 0.01;
-    }
-}
-
-class ExtendedMesh extends THREE.Mesh {
-    constructor(geometry = new THREE.BufferGeometry(), material = new THREE.MeshStandardMaterial()) {
-        super(geometry, material);
-    }
-
-    enableHighlight() {
-        this.material.needsUpdate = true
-        this.material.transparent = true;
-        this.material.opacity = 0.5;
-    }
-
-    disableHighlight() {
-        this.material.opacity = 1;
-        this.material.transparent = false;
-        this.material.needsUpdate = false;
-    }
-
-    animate() {
-        this.rotation.x += 0.01;
-        this.rotation.y += 0.01;
-    }
-}
-
-export class EditableQuadraticBezierCurve {
-    constructor() {
-        this.controlPoints = [
-            new ControlPoint2d(),
-            new ControlPoint2d(),
-            new ControlPoint2d(),
-            new ControlPoint2d(),
-        ];
-
-        this.controlPoints[0].position.set(-3, 0, 0);
-        this.controlPoints[1].position.set(0, 0, 2);
-        this.controlPoints[2].position.set(3, 0, 3);
-        this.controlPoints[3].position.set(5, 0, -3);
-
-        this.geometry = new THREE.BufferGeometry()
-        this.material = new THREE.LineBasicMaterial({color: 0xff0000});
-        this.curveObject = new THREE.Line(this.geometry, this.material);
-        this.curveObject.rotateX(Math.PI / 2);
-
-        this.updateCurveObject();
-    }
-
-    updateCurveObject() {
-        const curve = new THREE.CubicBezierCurve(
-            this.controlPoints[0].get2dPosition(),
-            this.controlPoints[1].get2dPosition(),
-            this.controlPoints[2].get2dPosition(),
-            this.controlPoints[3].get2dPosition(),
-        );
-
-        const points = curve.getPoints(50);
-        this.geometry.setFromPoints(points);
     }
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import {Draggable} from "./interfaces";
 
-abstract class ControlPoint extends THREE.Mesh {
+export abstract class ControlPoint extends THREE.Mesh implements Draggable {
     isZAxisFixed: boolean;
     material: THREE.MeshStandardMaterial;
 
