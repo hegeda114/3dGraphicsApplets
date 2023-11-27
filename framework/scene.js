@@ -3,17 +3,11 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {DragControls} from 'three/addons/controls/DragControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {GUI} from 'three/addons/libs/lil-gui.module.min.js';
-import {BezierCurve} from "./curves/bezier.js";
 import {ControlPoint2d} from "./control_point.js";
 
 
 export class Scene {
-    /**
-     * Creates a Scene instance
-     * @param container - HTML Dom element to where the WebGL will be rendering
-     * @param background - background color of the scene
-     */
-    constructor(container, background = 0xf0f0f0) {
+    constructor(container, usePerspectiveCamera = false, background = 0xf0f0f0) {
         this.threeScene = new THREE.Scene();
         this.threeScene.background = new THREE.Color(background);
 
@@ -29,29 +23,22 @@ export class Scene {
         this.animatedObjects = [];
         this.dragControlObjects = [];
 
+        // Add basic things
+        this.usePerspectiveCamera = usePerspectiveCamera;
+        this.updateMainCamera();
+        this.addDragControls();
+        this.addAxesHelper();
+        this.addGridHelper();
+        this.addPointLight();
+
         // Existence flags
         this.hasMainCamera = false;
-        this.hasDragControl = false;
         this.hasTransformControl = false;
 
-        // Test
-        const geometry = new THREE.BoxGeometry()
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
-        })
-
-        this.cube = new THREE.Mesh(geometry, material)
-        this.cube.position.set(10, 0, 0)
-        this.threeScene.add(this.cube)
+        // Style
+        this.controlPointSize = 0.2;
     }
 
-    /**
-     * Adds a GridHelper to the scene.
-     * @param size - the size of the grid helper
-     * @param division - the division of the grid helper
-     * @param yPos - the y position of the grid helper
-     * @param opacity - the opacity of the grid helper
-     */
     addGridHelper(size = 2000, division = 2000, yPos = 0, opacity = 0.25) {
         const helper = new THREE.GridHelper(size, division);
         helper.position.y = yPos;
@@ -72,7 +59,6 @@ export class Scene {
             throw Error(error_text);
         }
 
-        this.hasDragControl = true;
         this.dragControl = new DragControls(this.dragControlObjects, this.mainCamera, this.threeRenderer.domElement);
         this.dragControl.addEventListener('dragstart', (event) => {
             event.object.enableHighlight();
@@ -146,77 +132,48 @@ export class Scene {
         this.cameraOrbitControl.damping = 0.2;
     }
 
-    addTestCube(position = new THREE.Vector3(0, 0, 0)) {
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshStandardMaterial({color: new THREE.Color(0x00ff00)});
-        const cube = new ExtendedMesh(geometry, material);
-        cube.position.set(position.x, position.y, position.z)
-        this.threeScene.add(cube);
-        this.dragControlObjects.push(cube);
+    updateMainCamera() {
+        if (this.usePerspectiveCamera) {
+            this.addPerspectiveMainCamera();
+        } else {
+            this.addOrthographicMainCamera();
+        }
     }
 
     addPointLight() {
-        const light = new THREE.PointLight(0xffffff, 1000)
-        light.position.set(10, 10, 10)
-        this.threeScene.add(light)
+        const light = new THREE.PointLight(0xffffff, 1000);
+        light.position.set(10, 10, 10);
+        this.threeScene.add(light);
     }
 
-    addTestAnimatedCube(position = new THREE.Vector3(0, 0, 0)) {
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshStandardMaterial({color: 0xff0000});
-        const cube = new ExtendedMesh(geometry, material);
-        this.threeScene.add(cube)
-        this.animatedObjects.add(cube)
-    }
-
-    addTestQuadraticBezier() {
-        const quadraticBezier = new EditableQuadraticBezierCurve();
-        this.threeScene.add(quadraticBezier.curveObject);
-        quadraticBezier.controlPoints.forEach((controlPoint) => {
-            this.threeScene.add(controlPoint);
-            this.dragControlObjects.push(controlPoint);
+    showSettingsGui(gui) {
+        const sceneFolder = gui.addFolder('Scene');
+        let test = false;
+        const cameraTypeController = sceneFolder
+            .add(this, 'usePerspectiveCamera').name('Use perspective camera')
+            .listen();
+        cameraTypeController.onChange((newValue) => {
+            this.updateMainCamera();
         });
-        this.dragControl.addEventListener('drag', (event) => {
-            quadraticBezier.updateCurveObject();
-        });
+        //sceneFolder.add(this, 'controlPointSize', 'CP size');
     }
 
-    addTestBezierCurve() {
-        const bezier = new BezierCurve(16);
-        this.threeScene.add(bezier.curveObject);
-        bezier.controlPoints.forEach((controlPoint) => {
-            this.threeScene.add(controlPoint);
-            this.dragControlObjects.push(controlPoint);
-        });
-        this.dragControl.addEventListener('drag', (event) => {
-            bezier.updateCurveObject();
-        });
-    }
-
-    addDebugGui() {
-        const gui = new GUI()
-        const cubeFolder = gui.addFolder('Cube')
-        cubeFolder.add(this.cube.rotation, 'x', 0, Math.PI * 2)
-        cubeFolder.add(this.cube.rotation, 'y', 0, Math.PI * 2)
-        cubeFolder.add(this.cube.rotation, 'z', 0, Math.PI * 2)
-        // cubeFolder.open()
-        // const cameraFolder = gui.addFolder('Camera')
-        // cameraFolder.add(camera.position, 'z', 0, 10)
-        // cameraFolder.open()
-    }
-
-    /**
-     * Adds the given object to the scene and returns the success.
-     */
     addObject(object) {
-        if (typeof object.getMesh !== 'function') {
-            return false;
-        }
-        this.threeScene.add()
-        return true;
-    }
+        // Add render object to the scene
+        this.threeScene.add(object.getRenderObject());
 
-    addMesh() {
+        const controlPoints = object.getControlPoints();
+
+        // Make control points draggable
+        controlPoints.forEach((controlPoint) => {
+            this.threeScene.add(controlPoint);
+            this.dragControlObjects.push(controlPoint);
+        });
+        this.dragControl.addEventListener('drag', (event) => {
+            object.update();
+        });
+
+        // Set control points resizable
 
     }
 
@@ -229,74 +186,5 @@ export class Scene {
 
         this.cameraOrbitControl.update();
         this.threeRenderer.render(this.threeScene, this.mainCamera);
-    }
-}
-
-class AnimatedObject {
-    constructor(mesh) {
-        this.mesh = mesh
-    }
-
-    animate() {
-        this.mesh.rotation.x += 0.01;
-        this.mesh.rotation.y += 0.01;
-    }
-}
-
-class ExtendedMesh extends THREE.Mesh {
-    constructor(geometry = new THREE.BufferGeometry(), material = new THREE.MeshStandardMaterial()) {
-        super(geometry, material);
-    }
-
-    enableHighlight() {
-        this.material.needsUpdate = true
-        this.material.transparent = true;
-        this.material.opacity = 0.5;
-    }
-
-    disableHighlight() {
-        this.material.opacity = 1;
-        this.material.transparent = false;
-        this.material.needsUpdate = false;
-    }
-
-    animate() {
-        this.rotation.x += 0.01;
-        this.rotation.y += 0.01;
-    }
-}
-
-export class EditableQuadraticBezierCurve {
-    constructor() {
-        this.controlPoints = [
-            new ControlPoint2d(),
-            new ControlPoint2d(),
-            new ControlPoint2d(),
-            new ControlPoint2d(),
-        ];
-
-        this.controlPoints[0].position.set(-3, 0, 0);
-        this.controlPoints[1].position.set(0, 0, 2);
-        this.controlPoints[2].position.set(3, 0, 3);
-        this.controlPoints[3].position.set(5, 0, -3);
-
-        this.geometry = new THREE.BufferGeometry()
-        this.material = new THREE.LineBasicMaterial({color: 0xff0000});
-        this.curveObject = new THREE.Line(this.geometry, this.material);
-        this.curveObject.rotateX(Math.PI / 2);
-
-        this.updateCurveObject();
-    }
-
-    updateCurveObject() {
-        const curve = new THREE.CubicBezierCurve(
-            this.controlPoints[0].get2dPosition(),
-            this.controlPoints[1].get2dPosition(),
-            this.controlPoints[2].get2dPosition(),
-            this.controlPoints[3].get2dPosition(),
-        );
-
-        const points = curve.getPoints(50);
-        this.geometry.setFromPoints(points);
     }
 }

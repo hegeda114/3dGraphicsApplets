@@ -1,15 +1,17 @@
 import * as THREE from "three";
-import {ControlPoint2d} from "../control_point.js";
+import {ControlPoint, ControlPoint2d} from "../control_point.js";
 import {Vector3} from "three";
 import {bersnstein} from "../math.js";
 
 
 export class BezierCurve {
+    degree: number;
+    controlPoints: ControlPoint[]
+
     constructor(degree) {
         this.degree = degree;
 
         //this.controlPoints = new Array(this.degree).fill(new ControlPoint2d());
-        this.controlPoints = []
         for (let i = 0; i < this.degree; i++) {
             this.controlPoints.push(new ControlPoint2d());
         }

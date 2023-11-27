@@ -1,15 +1,13 @@
-import * as THREE from 'three';
-import {Scene} from '/framework/scene.js'
-import {BezierCurve2DObject} from "/framework/curves/bezier.js";
+import {Scene} from '../ts_framework/scene'
 
 const container = document.getElementById('simple_scene');
 
 // Test 1
-// let myScene = new Scene(container);
+let myScene = new Scene(container);
 // myScene.addPerspectiveMainCamera();
 // myScene.addTestCube();
-// myScene.addGridHelper();
-// myScene.addAxesHelper();
+myScene.addGridHelper();
+myScene.addAxesHelper();
 // myScene.addTestAnimatedCube();
 // myScene.addDragControls()
 // myScene.addTestCube(new THREE.Vector3(2, 3, 0));
@@ -28,14 +26,15 @@ const container = document.getElementById('simple_scene');
 // myScene.dragControlObjects.push(point);
 
 // Test 3
-let myScene = new Scene(container);
-myScene.addPerspectiveMainCamera();
-myScene.addGridHelper();
-myScene.addAxesHelper();
-myScene.addPointLight();
-myScene.addDragControls();
-const bezier = new BezierCurve2DObject(16);
-myScene.addTestBezierCurve(bezier);
+// let myScene = new Scene(container);
+// myScene.addPerspectiveMainCamera();
+// myScene.addGridHelper();
+// myScene.addAxesHelper();
+// myScene.addPointLight();
+// myScene.addDragControls();
+// // myScene.addTestQuadraticBezier();
+// myScene.addTestBezierCurve();
+// myScene.addDebugGui();
 
 // Update
 function update() {

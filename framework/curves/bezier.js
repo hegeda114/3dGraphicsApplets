@@ -1,14 +1,17 @@
 import * as THREE from "three";
 import {ControlPoint2d} from "../control_point.js";
-import {Vector3} from "three";
 import {bersnstein} from "../math.js";
 
 
-export class BezierCurve {
+export class BezierCurve3DObject {
+
+}
+
+
+export class BezierCurve2DObject {
     constructor(degree) {
         this.degree = degree;
 
-        //this.controlPoints = new Array(this.degree).fill(new ControlPoint2d());
         this.controlPoints = []
         for (let i = 0; i < this.degree; i++) {
             this.controlPoints.push(new ControlPoint2d());
@@ -20,23 +23,43 @@ export class BezierCurve {
         this.geometry = new THREE.BufferGeometry()
         this.material = new THREE.LineBasicMaterial({color: 0xff0000});
         this.curveObject = new THREE.Line(this.geometry, this.material);
-        // this.curveObject.rotateX(Math.PI / 2);
 
-        this.updateCurveObject();
+        this.update();
     }
 
-    updateCurveObject() {
+    setCursorPointPositions(positions) {
+        for (let i = 0; i < positions.length; i++) {
+            this.controlPoints[i].position.set(positions[i]);
+        }
+        this.update();
+    }
+
+    addControlPoint(position) {
+        this.degree++;
+        this.controlPoints.push(new ControlPoint2d())
+    }
+
+    update() {
         const controlPointPositions = this.controlPoints.map((controlPoint) => {
             return controlPoint.position;
         })
-        const curve = new CustomBezierCurve(controlPointPositions);
+        const curve = new BezierCurve(controlPointPositions);
         const points = curve.getPoints(10);
         this.geometry.setFromPoints(points);
     }
+
+    getRenderObject() {
+        return this.curveObject;
+    }
+
+    getControlPoints() {
+        return this.controlPoints;
+    }
+
 }
 
 
-class CustomBezierCurve extends THREE.Curve {
+class BezierCurve extends THREE.Curve {
     constructor(controlPointPositions) {
         super();
         this.controlPointPositions = controlPointPositions;
@@ -50,7 +73,7 @@ class CustomBezierCurve extends THREE.Curve {
             const k = index;
             const n = this.degree - 1;
             const bernstein = bersnstein(n, k, t);
-            const controlPointEffect = new Vector3().copy(controlPosition).multiplyScalar(bernstein);
+            const controlPointEffect = new THREE.Vector3().copy(controlPosition).multiplyScalar(bernstein);
             tx += controlPointEffect.x;
             ty += controlPointEffect.y;
             tz += controlPointEffect.z;
