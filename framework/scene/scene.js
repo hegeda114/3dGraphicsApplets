@@ -27,14 +27,15 @@ export class Scene {
         this.threeRenderer.shadowMap.enabled = true;
         container.appendChild(this.threeRenderer.domElement);
 
-        this.createMainCamera(usePerspectiveCamera);
+        this.initMainCamera(usePerspectiveCamera);
+        this.initDragControl();
     }
 
     /**
-     * Creates the main camera.
+     * Initializes the main camera.
      * @param usePerspectiveCamera {boolean} whether to use perspective camera
      */
-    createMainCamera(usePerspectiveCamera) {
+    initMainCamera(usePerspectiveCamera) {
         // Create camera
         if (usePerspectiveCamera) {
             this.mainCamera = new THREE.PerspectiveCamera(
@@ -60,6 +61,35 @@ export class Scene {
         if (!usePerspectiveCamera) { this.cameraOrbitControl.enableRotate = false; }
     }
 
+    /**
+     * Initializes the dragControl. It has to be called after the initMainCamera function!
+     */
+    initDragControl() {
+        this.dragControlObjects = [];
+        this.dragControl = new DragControls(this.dragControlObjects, this.mainCamera, this.threeRenderer.domElement);
+        this.dragControl.addEventListener('dragstart', (event) => {
+            if (typeof event.object.onDragStart === "function") {
+                event.object.onDragStart();
+            }
+            this.cameraOrbitControl.enabled = false;
+        });
+
+        this.dragControl.addEventListener('dragend', (event) => {
+            if (typeof event.object.onDragEnd === "function") {
+                event.object.onDragEnd();
+            }
+            this.cameraOrbitControl.enabled = true;
+        });
+
+        this.dragControl.addEventListener('drag', (event) => {
+            if (typeof event.object.getBlockedAxisList === "function") {
+                if ('y' in event.object.getBlockedAxisList()) {
+                    event.object.position.y = 0;
+                }
+            }
+        })
+    }
+
     showGridHelper(size = 2000, division = 2000, yPos = 0, opacity = 0.25) {
         this.gridHelper = new THREE.GridHelper(size, division);
         this.gridHelper.position.y = yPos;
@@ -79,6 +109,20 @@ export class Scene {
      */
     addInteractiveObject(object) {
         this.threeScene.add(object);
+    }
+
+    /**
+     * Adds the given draggable mesh to the scene.
+     * @param draggableMesh {DraggableMesh} the draggable mesh to add
+     */
+    addDraggableMesh(draggableMesh) {
+        this.threeScene.add(draggableMesh);
+
+        // Make draggable
+        this.dragControlObjects.push(draggableMesh);
+        // this.dragControl.addEventListener('drag', (event) => {
+        //     draggableMesh.update();
+        // });
     }
 
     update() {

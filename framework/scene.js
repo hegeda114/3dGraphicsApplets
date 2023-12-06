@@ -3,7 +3,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {DragControls} from 'three/addons/controls/DragControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {GUI} from 'three/addons/libs/lil-gui.module.min.js';
-import {ControlPoint2d} from "./control_point.js";
+import {ControlPoint2d} from "./control_point/control_point.js";
 
 
 export class Scene {

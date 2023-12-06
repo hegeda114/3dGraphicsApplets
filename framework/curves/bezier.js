@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import {ControlPoint2d} from "../control_point.js";
+import {ControlPoint2d} from "../control_point/control_point.js";
 import {bersnstein} from "../math.js";
 
 

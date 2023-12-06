@@ -32,4 +32,8 @@ export class ControlPoint extends DraggableMesh {
         this.material.transparent = false;
         this.material.needsUpdate = false;
     }
+
+    getBlockedAxisList() {
+        return ['y'];  // TODO this is not correct here!
+    }
 }
